@@ -216,21 +216,44 @@ class FakeNewsDetector:
         # Get base prediction from BERT
         base_prediction = self.predict(text)
         
+        # Special rule: Trusted domains with good metadata get strong boost
+        # This helps overcome untrained BERT model's uncertainty
+        is_trusted = features.get('is_trusted_domain', 0)
+        has_good_metadata = features.get('has_author', 0) and features.get('has_publish_date', 0)
+        
+        if is_trusted and has_good_metadata:
+            # Trusted source with proper journalism standards
+            # Give very strong credibility boost
+            result = {
+                'prediction': 'REAL',
+                'confidence': 0.85,  # High confidence for trusted sources
+                'fake_probability': 0.15,
+                'real_probability': 0.85,
+                'bert_prediction': base_prediction['prediction'],
+                'feature_score': 0.0,
+                'model_used': 'Ensemble (BERT + Features) - Trusted Source Override'
+            }
+            logger.info(f"Trusted source detected with good metadata - classified as REAL")
+            return result
+        
         # Feature-based scoring (simple rule-based system)
         # In production, you'd train another model on these features
         feature_score = self._calculate_feature_score(features)
         
         # Combine predictions (weighted average)
-        # 70% weight to BERT, 30% to features
+        # 40% weight to BERT, 60% to features (features dominate since model not fine-tuned)
+        # When model is fine-tuned, increase BERT weight back to 70-80%
         combined_fake_prob = (
-            0.7 * base_prediction['fake_probability'] +
-            0.3 * feature_score
+            0.4 * base_prediction['fake_probability'] +
+            0.6 * feature_score
         )
         
         # Update prediction based on combined score
         final_prediction = 'FAKE' if combined_fake_prob > 0.5 else 'REAL'
+        final_confidence = max(combined_fake_prob, 1 - combined_fake_prob)
         
-        if abs(combined_fake_prob - 0.5) < (1 - config.CONFIDENCE_THRESHOLD):
+        # Mark as uncertain only if very close to 0.5
+        if final_confidence < config.CONFIDENCE_THRESHOLD:
             final_prediction = 'UNCERTAIN'
         
         result = {
@@ -259,21 +282,31 @@ class FakeNewsDetector:
         """
         score = 0.5  # Start at neutral
         
-        # Penalize for unreliable domain
+        # Strong penalty for unreliable domain
         if features.get('is_unreliable_domain', 0):
-            score += 0.3
+            score += 0.4
         
-        # Reward for trusted domain
+        # Strong reward for trusted domain (BBC, Reuters, etc.)
         if features.get('is_trusted_domain', 0):
-            score -= 0.3
+            score -= 0.55  # Strong indicator of credibility
+        
+        # Reward for having author
+        if features.get('has_author', 0):
+            score -= 0.15  # Increased from 0.1
+        
+        # Reward for having publish date
+        if features.get('has_publish_date', 0):
+            score -= 0.1  # Increased from 0.05
         
         # Penalize for high clickbait indicators
         if features.get('clickbait_keyword_count', 0) > 2:
-            score += 0.15
+            score += 0.2
+        elif features.get('clickbait_keyword_count', 0) > 0:
+            score += 0.1
         
         # Penalize for excessive emotional language
         if features.get('emotional_word_ratio', 0) > 0.05:
-            score += 0.1
+            score += 0.15
         
         # Penalize for high subjectivity
         if features.get('text_subjectivity', 0) > 0.7:

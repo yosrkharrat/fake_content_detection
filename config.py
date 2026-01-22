@@ -49,7 +49,8 @@ BATCH_SIZE = 8
 
 # Confidence threshold for classification (0.0 to 1.0)
 # Predictions below this threshold are marked as "uncertain"
-CONFIDENCE_THRESHOLD = 0.7
+# Lowered to 0.53 to account for base model not being fine-tuned
+CONFIDENCE_THRESHOLD = 0.53
 
 # ============================================================================
 # FEATURE EXTRACTION SETTINGS - Parameters for content analysis
@@ -70,8 +71,10 @@ EMOTIONAL_WORDS = [
 
 # Trusted news domains (used for source credibility scoring)
 TRUSTED_DOMAINS = [
-    "reuters.com", "apnews.com", "bbc.com", "npr.org", "pbs.org",
-    "nytimes.com", "washingtonpost.com", "theguardian.com", "economist.com"
+    "reuters.com", "apnews.com", "bbc.com", "bbc.co.uk", "npr.org", "pbs.org",
+    "nytimes.com", "washingtonpost.com", "theguardian.com", "economist.com",
+    "cnn.com", "abcnews.go.com", "cbsnews.com", "nbcnews.com", "usatoday.com",
+    "time.com", "newsweek.com", "politico.com", "thehill.com", "axios.com"
 ]
 
 # Known unreliable domains (you would expand this list)

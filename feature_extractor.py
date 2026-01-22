@@ -285,12 +285,24 @@ class FeatureExtractor:
         features = {}
         
         domain = content.get('domain', '').lower()
+        # Remove www. prefix if present
+        domain = domain.replace('www.', '')
         
-        # Check if domain is in trusted list
-        features['is_trusted_domain'] = 1 if domain in config.TRUSTED_DOMAINS else 0
+        # Check if domain is in trusted list (check both exact match and base domain)
+        is_trusted = False
+        for trusted in config.TRUSTED_DOMAINS:
+            if domain == trusted or domain.endswith('.' + trusted) or trusted in domain:
+                is_trusted = True
+                break
+        features['is_trusted_domain'] = 1 if is_trusted else 0
         
         # Check if domain is in unreliable list
-        features['is_unreliable_domain'] = 1 if domain in config.UNRELIABLE_DOMAINS else 0
+        is_unreliable = False
+        for untrusted in config.UNRELIABLE_DOMAINS:
+            if domain == untrusted or domain.endswith('.' + untrusted) or untrusted in domain:
+                is_unreliable = True
+                break
+        features['is_unreliable_domain'] = 1 if is_unreliable else 0
         
         # Domain age/reputation indicators (simplified)
         # In production, you'd query domain age databases
