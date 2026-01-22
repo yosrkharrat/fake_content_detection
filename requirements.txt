@@ -1,0 +1,35 @@
+# Core Web Framework - FastAPI for building REST API endpoints
+fastapi==0.109.0
+uvicorn==0.27.0  # ASGI server for running FastAPI
+
+# Machine Learning & NLP Libraries
+transformers==4.36.2  # Hugging Face transformers for BERT models
+torch==2.1.2  # PyTorch for deep learning
+scikit-learn==1.4.0  # Traditional ML algorithms
+numpy==1.26.3  # Numerical computing
+pandas==2.1.4  # Data manipulation
+
+# Web Scraping & Content Extraction
+requests==2.31.0  # HTTP library for fetching web pages
+beautifulsoup4==4.12.3  # HTML/XML parsing
+newspaper3k==0.2.8  # Article extraction library
+python-dateutil==2.8.2  # Date parsing utilities
+
+# NLP & Text Processing
+nltk==3.8.1  # Natural Language Toolkit for text processing
+textblob==0.17.1  # Sentiment analysis
+spacy==3.7.2  # Advanced NLP library
+
+# Model Explainability
+shap==0.44.0  # SHapley Additive exPlanations for model interpretability
+lime==0.2.0.1  # Local Interpretable Model-agnostic Explanations
+
+# Database & Caching
+sqlalchemy==2.0.25  # Database ORM
+redis==5.0.1  # In-memory caching for results
+
+# Utilities
+python-dotenv==1.0.0  # Environment variable management
+pydantic==2.5.3  # Data validation
+python-multipart==0.0.6  # Form data parsing
+aiohttp==3.9.1  # Async HTTP client
