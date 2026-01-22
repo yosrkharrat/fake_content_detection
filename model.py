@@ -219,21 +219,37 @@ class FakeNewsDetector:
         # Special rule: Trusted domains with good metadata get strong boost
         # This helps overcome untrained BERT model's uncertainty
         is_trusted = features.get('is_trusted_domain', 0)
-        has_good_metadata = features.get('has_author', 0) and features.get('has_publish_date', 0)
+        has_author = features.get('has_author', 0)
+        has_date = features.get('has_publish_date', 0)
+        word_count = features.get('word_count', 0)
         
-        if is_trusted and has_good_metadata:
-            # Trusted source with proper journalism standards
+        # Trusted source with proper journalism standards
+        if is_trusted and has_author and has_date:
             # Give very strong credibility boost
             result = {
                 'prediction': 'REAL',
-                'confidence': 0.85,  # High confidence for trusted sources
-                'fake_probability': 0.15,
-                'real_probability': 0.85,
+                'confidence': 0.90,  # Very high confidence for trusted sources
+                'fake_probability': 0.10,
+                'real_probability': 0.90,
                 'bert_prediction': base_prediction['prediction'],
                 'feature_score': 0.0,
                 'model_used': 'Ensemble (BERT + Features) - Trusted Source Override'
             }
-            logger.info(f"Trusted source detected with good metadata - classified as REAL")
+            logger.info(f"Trusted source detected with full metadata - classified as REAL")
+            return result
+        
+        # Trusted source with some metadata (slightly less confident)
+        if is_trusted and (has_author or has_date) and word_count > 200:
+            result = {
+                'prediction': 'REAL',
+                'confidence': 0.82,  # High confidence
+                'fake_probability': 0.18,
+                'real_probability': 0.82,
+                'bert_prediction': base_prediction['prediction'],
+                'feature_score': 0.0,
+                'model_used': 'Ensemble (BERT + Features) - Trusted Source'
+            }
+            logger.info(f"Trusted source detected - classified as REAL")
             return result
         
         # Feature-based scoring (simple rule-based system)
@@ -282,6 +298,7 @@ class FakeNewsDetector:
         """
         score = 0.5  # Start at neutral
         
+        # === DOMAIN CREDIBILITY (Most Important) ===
         # Strong penalty for unreliable domain
         if features.get('is_unreliable_domain', 0):
             score += 0.4
@@ -290,40 +307,98 @@ class FakeNewsDetector:
         if features.get('is_trusted_domain', 0):
             score -= 0.55  # Strong indicator of credibility
         
-        # Reward for having author
+        # === PROPER JOURNALISM INDICATORS ===
+        # Reward for having author (proper attribution)
         if features.get('has_author', 0):
-            score -= 0.15  # Increased from 0.1
+            score -= 0.15
         
-        # Reward for having publish date
+        # Reward for having publish date (transparency)
         if features.get('has_publish_date', 0):
-            score -= 0.1  # Increased from 0.05
+            score -= 0.1
         
-        # Penalize for high clickbait indicators
-        if features.get('clickbait_keyword_count', 0) > 2:
-            score += 0.2
-        elif features.get('clickbait_keyword_count', 0) > 0:
-            score += 0.1
+        # Reward for presence of quotes (indicates reporting)
+        quote_count = features.get('quote_count', 0)
+        if quote_count >= 3:
+            score -= 0.1  # Good journalism includes multiple sources
+        elif quote_count >= 1:
+            score -= 0.05
         
-        # Penalize for excessive emotional language
-        if features.get('emotional_word_ratio', 0) > 0.05:
+        # Reward for common TLD (.com, .org, etc.)
+        if features.get('has_common_tld', 0):
+            score -= 0.03
+        
+        # === CONTENT QUALITY INDICATORS ===
+        # Penalize for clickbait (check both title and patterns)
+        clickbait_count = features.get('clickbait_keyword_count', 0)
+        clickbait_patterns = features.get('clickbait_pattern_count', 0)
+        
+        if clickbait_count > 2 or clickbait_patterns > 1:  # Multiple strong indicators
+            score += 0.25  # Strong penalty
+        elif clickbait_count > 0 or clickbait_patterns > 0:
+            score += 0.10  # Mild penalty
+        
+        # Strong penalty for extreme emotional language
+        emotional_ratio = features.get('emotional_word_ratio', 0)
+        if emotional_ratio > 0.1:  # Very high emotional content
+            score += 0.20
+        elif emotional_ratio > 0.06:
+            score += 0.10
+        
+        # Penalize for ALL CAPS in title
+        title_caps_ratio = features.get('title_caps_ratio', 0)
+        if title_caps_ratio > 0.5:  # More than half the title is caps
             score += 0.15
         
-        # Penalize for high subjectivity
-        if features.get('text_subjectivity', 0) > 0.7:
-            score += 0.1
+        # Reward for balanced tone (not too subjective)
+        subjectivity = features.get('text_subjectivity', 0)
+        if 0.3 <= subjectivity <= 0.6:  # Balanced reporting
+            score -= 0.05
+        elif subjectivity > 0.8:  # Very subjective/opinion piece
+            score += 0.08
         
-        # Penalize for missing author
-        if not features.get('has_author', 0):
-            score += 0.05
+        # === WRITING QUALITY ===
+        # Strong penalty for excessive capitalization (SHOUTING)
+        capital_ratio = features.get('capital_ratio', 0)
+        if capital_ratio > 0.2:  # Very high caps
+            score += 0.15
+        elif capital_ratio > 0.15:
+            score += 0.08
         
-        # Penalize for excessive capitalization
-        if features.get('capital_ratio', 0) > 0.15:
-            score += 0.1
+        # Penalize for missing both author AND date (low transparency)
+        has_author = features.get('has_author', 0)
+        has_date = features.get('has_publish_date', 0)
+        if not has_author and not has_date:
+            score += 0.12  # Missing both is suspicious
         
-        # Penalize for extreme readability (too easy or too hard)
+        # Penalize for short, low-quality content
+        word_count = features.get('word_count', 0)
+        if word_count < 100:  # Very short
+            score += 0.10
+        
+        # Reward for appropriate readability (news articles typically 40-70)
         flesch_score = features.get('flesch_reading_ease', 50)
-        if flesch_score < 30 or flesch_score > 90:
+        if 40 <= flesch_score <= 70:  # Good news writing level
+            score -= 0.05
+        elif flesch_score < 20 or flesch_score > 90:  # Extreme values
+            score += 0.08
+        
+        # Reward for reasonable article length (not too short)
+        word_count = features.get('word_count', 0)
+        if word_count >= 300:  # Substantial article
+            score -= 0.05
+        elif word_count < 100:  # Too short might be low quality
             score += 0.05
+        
+        # === STRUCTURAL QUALITY ===
+        # Reward for proper paragraph structure
+        paragraph_count = features.get('paragraph_count', 0)
+        if paragraph_count >= 5:  # Well-structured article
+            score -= 0.03
+        
+        # Penalize for excessive exclamation marks
+        exclamation_ratio = features.get('exclamation_ratio', 0)
+        if exclamation_ratio > 0.02:  # Increased threshold
+            score += 0.08
         
         # Ensure score stays in [0, 1] range
         score = max(0.0, min(1.0, score))

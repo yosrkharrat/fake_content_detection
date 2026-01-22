@@ -57,16 +57,18 @@ CONFIDENCE_THRESHOLD = 0.53
 # ============================================================================
 
 # Keywords that indicate clickbait or sensational content
+# Only extreme/obvious clickbait terms to reduce false positives
 CLICKBAIT_KEYWORDS = [
-    "shocking", "unbelievable", "you won't believe", "this will blow your mind",
-    "doctors hate", "one weird trick", "what happens next", "gone wrong",
-    "must see", "amazing", "incredible", "jaw-dropping"
+    "you won't believe", "this will blow your mind",
+    "doctors hate", "one weird trick", "what happens next will",
+    "must see", "gone wrong", "jaw-dropping"
 ]
 
 # Emotional words that might indicate biased or fake content
+# Reduced list to only extreme emotional language
 EMOTIONAL_WORDS = [
-    "outrage", "shocking", "devastating", "horrifying", "terrifying",
-    "disgusting", "infuriating", "heartbreaking", "explosive", "bombshell"
+    "outrageous", "horrifying", "terrifying",
+    "disgusting", "infuriating", "devastating", "bombshell"
 ]
 
 # Trusted news domains (used for source credibility scoring)

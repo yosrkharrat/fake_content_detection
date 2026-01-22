@@ -259,6 +259,20 @@ class FeatureExtractor:
         quote_count = text.count('"') + text.count('"') + text.count('"')
         features['quote_count'] = quote_count // 2  # Divide by 2 for opening/closing pairs
         
+        # Count named entities/proper nouns (indicates specific reporting)
+        # Simple heuristic: capitalized words that aren't at sentence start
+        words = text.split()
+        sentences = nltk.sent_tokenize(text)
+        sentence_starts = set()
+        for sentence in sentences:
+            if sentence:
+                first_word = sentence.split()[0] if sentence.split() else ''
+                sentence_starts.add(first_word)
+        
+        proper_nouns = sum(1 for word in words if word and word[0].isupper() and word not in sentence_starts and len(word) > 1)
+        features['proper_noun_count'] = proper_nouns
+        features['proper_noun_ratio'] = proper_nouns / len(words) if words else 0
+        
         # Paragraph count (estimated by double newlines)
         paragraph_count = len([p for p in text.split('\n\n') if p.strip()])
         features['paragraph_count'] = max(1, paragraph_count)
